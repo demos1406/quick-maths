@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>quick maths</title>
+
+<link rel="icon" type="image/png" href="icon.png" />
+<link rel="apple-touch-icon" href="icon.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="apple-mobile-web-app-title" content="Maths" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="theme-color" content="#bbc7ec" />
+
+<style>
+  :root {
+    --bg: #bbc7ec;
+    --fg: #09022e;
+    --muted: #b8b8b3;
+    --accent-correct: #2eb872;
+    --accent-wrong: #e23d51;
+    --border: #d8d8d2;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2.5rem;
+    padding: 2rem;
+    width: 100%;
+    max-width: 28rem;
+  }
+
+  #problem {
+    font-size: clamp(2.5rem, 8vw, 3.75rem);
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    color: var(--fg);
+    user-select: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #answer {
+    font-family: inherit;
+    font-size: clamp(2rem, 6vw, 2.75rem);
+    font-weight: 300;
+    text-align: center;
+    width: 100%;
+    max-width: 14rem;
+    padding: 0.9rem 1.2rem;
+    background: #9fb0de;
+    color: var(--fg);
+    border: none;
+    border-radius: 1.4rem;
+    outline: none;
+    transition: background-color 200ms ease, transform 200ms ease;
+    font-variant-numeric: tabular-nums;
+    caret-color: var(--fg);
+  }
+
+  #answer:focus {
+    background: #6886d6;
+  }
+
+  #answer::-webkit-outer-spin-button,
+  #answer::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  #answer { -moz-appearance: textfield; }
+
+  #answer.correct {
+    transform: scale(1.06);
+  }
+
+  #answer.wrong {
+    animation: shake 380ms cubic-bezier(.36,.07,.19,.97);
+  }
+
+  @keyframes shake {
+    10%, 90% { transform: translateX(-2px); }
+    20%, 80% { transform: translateX(4px); }
+    30%, 50%, 70% { transform: translateX(-8px); }
+    40%, 60% { transform: translateX(8px); }
+  }
+</style>
+</head>
+<body>
+  <main class="stage">
+    <div id="problem" aria-live="polite"></div>
+    <input
+      id="answer"
+      type="text"
+      inputmode="numeric"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      aria-label="Your answer"
+    />
+  </main>
+
+<script>
+(() => {
+  const problemEl = document.getElementById('problem');
+  const answerEl = document.getElementById('answer');
+
+  const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+  const generators = [
+    () => {
+      const a = randInt(10, 99), b = randInt(10, 99);
+      return { text: `${a} + ${b}`, answer: a + b };
+    },
+    () => {
+      const a = randInt(20, 99), b = randInt(1, a);
+      return { text: `${a} − ${b}`, answer: a - b };
+    },
+    () => {
+      const a = randInt(2, 12), b = randInt(2, 12);
+      return { text: `${a} × ${b}`, answer: a * b };
+    },
+    () => {
+      const divisor = randInt(2, 12), quotient = randInt(2, 12);
+      return { text: `${divisor * quotient} ÷ ${divisor}`, answer: quotient };
+    },
+  ];
+
+  let current = null;
+  let locked = false;
+
+  function nextProblem() {
+    current = generators[randInt(0, generators.length - 1)]();
+    problemEl.textContent = current.text;
+    answerEl.value = '';
+    answerEl.classList.remove('correct', 'wrong');
+    answerEl.focus();
+    locked = false;
+  }
+
+  function flashWrong() {
+    answerEl.classList.remove('wrong');
+    // force reflow so the animation restarts
+    void answerEl.offsetWidth;
+    answerEl.classList.add('wrong');
+    locked = true;
+    setTimeout(() => {
+      answerEl.value = '';
+      answerEl.classList.remove('wrong');
+      locked = false;
+      answerEl.focus();
+    }, 420);
+  }
+
+  function flashCorrectAndAdvance() {
+    answerEl.classList.add('correct');
+    locked = true;
+    setTimeout(nextProblem, 280);
+  }
+
+  answerEl.addEventListener('input', () => {
+    if (locked) return;
+    // strip anything non-digit
+    const cleaned = answerEl.value.replace(/\D/g, '');
+    if (cleaned !== answerEl.value) answerEl.value = cleaned;
+    if (!current) return;
+    const target = String(current.answer);
+    if (answerEl.value.length === target.length) {
+      if (answerEl.value === target) flashCorrectAndAdvance();
+      else flashWrong();
+    }
+  });
+
+  // keep focus glued to the input
+  answerEl.addEventListener('blur', () => setTimeout(() => answerEl.focus(), 0));
+  document.addEventListener('click', () => answerEl.focus());
+
+  nextProblem();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+  }
+})();
+</script>
+</body>
+</html>
